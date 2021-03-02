@@ -18,7 +18,7 @@ out vec3 normal;
 out vec4 color;
 
 void main() {
-mat4 m_view = m_camera * m_model;
+    mat4 m_view = m_camera * m_model;
     vec4 p = m_view * vec4(in_position, 1.0);
     gl_Position =  m_proj * p;
     mat3 m_normal = inverse(transpose(mat3(m_view)));

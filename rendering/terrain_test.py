@@ -6,8 +6,6 @@ from time import perf_counter_ns
 import configparser
 from base import CameraWindow
 
-np.set_printoptions(linewidth=100)
-
 config_file = "config.ini"
 config = configparser.ConfigParser()
 config.read(config_file)
@@ -86,7 +84,7 @@ class TerrainTest(CameraWindow):
     aspect_ratio = None
     window_size = 1280, 720
     resizable = True
-    samples = 4
+    samples = 0
     clear_color = 51 / 255, 51 / 255, 51 / 255
 
     def __init__(self, **kwargs) -> None:
@@ -164,7 +162,8 @@ class TerrainTest(CameraWindow):
         ]
         # number of vertices for each vao/buffer
         self.num_vertices = [0] * self.render_distance ** 2
-
+        # position of chunks, used for placing the frustrum culling primitive
+        self.chunk_positions = [(0, 0, 0)] * self.render_distance ** 2
         # Texture
         self.world_texture = self.ctx.texture(
             (self.N, self.render_distance ** 2), alignment=4, dtype="i4", components=1
@@ -295,10 +294,10 @@ class TerrainTest(CameraWindow):
             self.geometry_vao.transform(out_buffer, mode=moderngl.POINTS)
 
         self.num_vertices[chunk_id] = self.q.primitives * 3
-        # print(f"{chunk_id}: {self.rendering_vaos[chunk_id]}, \
-        # {out_buffer} @ {self.q.primitives  * 3}")
+        self.chunk_positions[chunk_id] = world_pos
 
     def render(self, time: float, frame_time: float) -> None:
+        # print("rendering")
         self.ctx.enable_only(moderngl.DEPTH_TEST)
 
         self.player.position = self.camera.position
@@ -316,7 +315,10 @@ class TerrainTest(CameraWindow):
         self.test_render_program["m_proj"].write(self.camera.projection.matrix)
 
         self.test_render_program["id"] = -1
-        for vao, num_vertices in zip(self.rendering_vaos, self.num_vertices):
+
+        grouped_vaos = zip(self.rendering_vaos, self.num_vertices)
+
+        for vao, num_vertices in grouped_vaos:
             if self.show_id:
                 self.test_render_program["id"] = vao.glo
             vao.render(mode=moderngl.TRIANGLES, vertices=num_vertices)
@@ -334,17 +336,15 @@ class TerrainTest(CameraWindow):
         super().key_event(key, action, modifiers)
         keys = self.wnd.keys
 
-        if key == keys.G:
+        if key == keys.G and action == keys.ACTION_PRESS:
             self.ctx.wireframe = not self.ctx.wireframe
             if self.ctx.wireframe:
                 self.ctx.enable_only(moderngl.DEPTH_TEST)
             else:
                 self.ctx.enable_only(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
 
-        if key == keys.F:
-            self.show_id = True
-        else:
-            self.show_id = False
+        if key == keys.F and action == keys.ACTION_PRESS:
+            self.show_id = not self.show_id
 
 
 if __name__ == "__main__":
